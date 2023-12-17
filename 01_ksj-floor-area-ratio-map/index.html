@@ -1,0 +1,933 @@
+<html>
+
+<head>
+    <title>容積率マップ（PMTiles）</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css' rel='stylesheet' />
+    <script src="https://unpkg.com/pmtiles@2.10.0/dist/index.js"></script>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-overlay {
+            font: bold 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            position: absolute;
+            width: 180px;
+            bottom: 20px;
+            left: 0px;
+            padding: 10px;
+        }
+
+        .map-overlay .map-overlay-inner {
+            background-color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .map-overlay label {
+            display: block;
+            margin: 0 0 0px;
+            font-size: 12px;
+            top: 100px;
+            left: 10px;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .map-overlay input {
+            background-color: transparent;
+            display: inline-block;
+            width: 100%;
+            position: relative;
+            margin: 0;
+            cursor: ew-resize;
+        }
+
+        .maplibregl-popup .maplibregl-popup-content {
+            padding: 8px 10px;
+            font: 12px/14px Arial, Helvetica, sans-serif;
+            color: black;
+            background: white;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+            border-radius: 5px;
+            width: 200px;
+            height: auto;
+        }
+
+        .legend {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 3px;
+            bottom: 40px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
+            font: 12px/14px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            padding: 10px;
+            position: absolute;
+            right: 10px;
+            z-index: 1;
+            line-height: 20px;
+            height: auto;
+        }
+
+        .legend h4 {
+            margin: 0 0 10px;
+        }
+
+        .legend div span {
+            border-radius: 50%;
+            display: inline-block;
+            height: 15px;
+            margin-right: 10px;
+            width: 15px;
+            color: orangered
+        }
+
+        .square {
+            width: 15px;
+            height: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="map-overlay top">
+        <div class="map-overlay-inner">
+            <label>用途地域 不透明度: <span id="slider-opacity-value">80%</span></label>
+            <input id="slider-opacity" type="range" min="0" max="100" step="1" value="80">
+        </div>
+    </div>
+    <!--
+    <div id="legend-youtochiiki-name" style="display:block;" class='legend'>
+        <h4>用途地域名</h4>
+        <div class="square" style='background-color: rgb(0, 178, 133); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">第一種低層住居専用地域</span><br>
+        <div class="square" style='background-color: rgb(145, 207, 185); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">第二種低層住居専用地域</span><br>
+        <div class="square" style='background-color: rgb(120, 206, 63); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">第一種中高層住居専用地域</span><br>
+        <div class="square" style='background-color: rgb(173, 223, 33); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">第二種中高層住居専用地域</span><br>
+        <div class="square" style='background-color: rgb(235, 238, 94); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">第一種住居地域</span><br>
+        <div class="square" style='background-color: rgb(255, 210, 182); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">第二種住居地域</span><br>
+        <div class="square" style='background-color: rgb(255, 166, 56); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">準住居地域</span><br>
+        <div class="square" style='background-color: rgb(255, 176, 195); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">近隣商業地域</span><br>
+        <div class="square" style='background-color: rgb(255, 89, 61); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">商業地域</span><br>
+        <div class="square" style='background-color: rgb(167, 148, 197); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">準工業地域</span><br>
+        <div class="square" style='background-color: rgb(185, 234, 255); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">工業地域</span><br>
+        <div class="square" style='background-color: rgb(95, 197, 251); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">工業専用地域</span><br>
+        <div class="square" style='background-color: rgb(196, 215, 155); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">田園住居地域</span><br>
+    </div>
+    -->
+    <div id="legend-youtochiiki-ratio" style="display:block;" class='legend'>
+        <h4>容積率(%)</h4>
+        <div class="square" style='background-color: rgb(76,0,152); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">1000%-</span><br>
+        <div class="square" style='background-color: rgb(203,0,152); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">700%-</span><br>
+        <div class="square" style='background-color: rgb(255,0,63); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">500%-</span><br>
+        <div class="square" style='background-color: rgb(255,191,0); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">400%-</span><br>
+        <div class="square" style='background-color: rgb(255,216,101); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">300%-</span><br>
+        <div class="square" style='background-color: rgb(255,255,153); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">200%-</span><br>
+        <div class="square" style='background-color: rgb(178,255,101); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">150%-</span><br>
+        <div class="square" style='background-color: rgb(0,203,101); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">100%-</span><br>
+        <div class="square" style='background-color: rgb(0,101,203); display: inline-block;'>
+        </div><span style="display: inline-block; margin-left: 5px;">0%-</span><br>
+    </div>
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.2.0/dist/maplibre-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@maplibre/maplibre-gl-geocoder@1.2.0/dist/maplibre-gl-geocoder.css"
+        type="text/css" />
+    <script type="text/javascript">
+        // addProtocolの設定
+        let protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol("pmtiles", protocol.tile);
+
+        // マップの初期化
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://tile.openstreetmap.jp/styles/maptiler-basic-ja/style.json',
+            zoom: 9.43,
+            minZoom: 1,
+            maxZoom: 23,
+            pitch: 0,
+            maxPitch: 85,
+            center: [139.7872, 35.665],
+            hash: true,
+            attributionControl: false
+        });
+
+        // ジオコーダー追加
+        var geocoder_api = {
+            forwardGeocode: async (config) => {
+                const features = [];
+                try {
+                    let request =
+                        'https://nominatim.openstreetmap.org/search?q=' +
+                        config.query +
+                        '&format=geojson&polygon_geojson=1&addressdetails=1';
+                    const response = await fetch(request);
+                    console.log(response)
+                    const geojson = await response.json();
+                    for (let feature of geojson.features) {
+                        let center = [
+                            feature.bbox[0] +
+                            (feature.bbox[2] - feature.bbox[0]) / 2,
+                            feature.bbox[1] +
+                            (feature.bbox[3] - feature.bbox[1]) / 2
+                        ];
+                        let point = {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Point',
+                                coordinates: center
+                            },
+                            place_name: feature.properties.display_name,
+                            properties: feature.properties,
+                            text: feature.properties.display_name,
+                            place_type: ['place'],
+                            center: center
+                        };
+                        features.push(point);
+                    }
+                } catch (e) {
+                    console.error(`Failed to forwardGeocode with error: ${e}`);
+                }
+
+                return {
+                    features: features
+                };
+            }
+        };
+
+        map.addControl(
+            new MaplibreGeocoder(geocoder_api, {
+                maplibregl: maplibregl
+            }), 'top-left');
+
+        // ズーム・回転
+        map.addControl(new maplibregl.NavigationControl());
+
+        // フルスクリーンモードのオンオフ
+        map.addControl(new maplibregl.FullscreenControl());
+
+        // 現在位置表示
+        map.addControl(new maplibregl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: false
+            },
+            fitBoundsOptions: { maxZoom: 18 },
+            trackUserLocation: true,
+            showUserLocation: true
+        }));
+
+        // スケール表示
+        map.addControl(new maplibregl.ScaleControl({
+            maxWidth: 200,
+            unit: 'metric'
+        }));
+
+        // Attributionを折りたたみ表示
+        map.addControl(new maplibregl.AttributionControl({
+            compact: true,
+            customAttribution: '（<a href="https://twitter.com/shi__works" target="_blank">Twitter</a> | <a href="https://github.com/shi-works/ksj-land-use-zone-map-on-maplibre-gl-js" target="_blank">Github</a>） '
+        }));
+
+        // 3D地形コントロール
+        map.addControl(
+            new maplibregl.TerrainControl({
+                source: 'gsidem',
+                exaggeration: 1 // 標高を強調する倍率
+            })
+        );
+
+        var hoveredStateId = null;
+
+        map.on('load', () => {
+            // 標高タイルソース
+            map.addSource("gsidem", {
+                type: 'raster-dem',
+                tiles: [
+                    'https://xs489works.xsrv.jp/raster-tiles/gsi/gsi-dem-terrain-rgb/{z}/{x}/{y}.png',
+                ],
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#dem">地理院タイル(標高タイル)</a>',
+                tileSize: 256
+            });
+
+            // 陰影起伏図ソース
+            map.addSource("hillshade", {
+                type: 'raster',
+                tiles: [
+                    'https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png',
+                ],
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html#hillshademap" target="_blank">地理院タイル(陰影起伏図)</a>',
+                tileSize: 256
+            });
+
+            // 陰影起伏図レイヤ
+            map.addLayer({
+                id: 'hillshade-tiles',
+                type: 'raster',
+                source: 'hillshade',
+                minzoom: 2,
+                maxzoom: 18,
+                paint: {
+                    'raster-opacity': 0.3
+                }
+            });
+
+            map.showTileBoundaries = false;
+
+            // 用途地域ソース
+            map.addSource("pmtiles-youtochiiki", {
+                type: "vector",
+                url: "pmtiles://" + "https://xs489works.xsrv.jp/pmtiles-data/ksj/A29_19_01_47_youtochiiki_v2.pmtiles",
+                attribution: '<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-A29-v2_1.html">国土数値情報 用途地域データ（2019年、2011年）を加工して作成</a>',
+                generateId: true
+            });
+
+            /*
+            // 用途地域ポリゴンレイヤ
+            map.addLayer({
+                "id": 'youtochiiki-name-fill',
+                "source": "pmtiles-youtochiiki",
+                "source-layer": "A29_19_01_47_youtochiiki_v2fgb",
+                "type": "fill",
+                minzoom: 1,
+                maxzoom: 23,
+                "paint": {
+                    "fill-color": [
+                        "match",
+                        ["to-number", ["get", "A29_004"]],
+                        1, "rgb(0, 178, 133)", // 第一種低層住居専用地域
+                        2, "rgb(145, 207, 185)", // 第二種低層住居専用地域
+                        3, "rgb(120, 206, 63)", // 第一種中高層住居専用地域
+                        4, "rgb(173, 223, 33)", // 第二種中高層住居専用地域
+                        5, "rgb(235, 238, 94)", // 第一種住居地域
+                        6, "rgb(255, 210, 182)", // 第二種住居地域
+                        7, "rgb(255, 166, 56)", // 準住居地域
+                        8, "rgb(255, 176, 195)", // 近隣商業地域
+                        9, "rgb(255, 89, 61)", // 商業地域
+                        10, "rgb(167, 148, 197)", // 準工業地域
+                        11, "rgb(185, 234, 255)", // 工業地域
+                        12, "rgb(95, 197, 251)", // 工業専用地域
+                        21, "rgb(196, 215, 155)", // 田園住居地域
+                        '#333'
+                    ],
+                    'fill-opacity': 0.8,
+                    'fill-outline-color': 'rgba(0, 0, 0, 0)'
+                },
+            });
+            */
+
+            // 用途地域ポリゴンレイヤ
+            map.addLayer({
+                "id": 'youtochiiki-ratio-fill',
+                "source": "pmtiles-youtochiiki",
+                "source-layer": "A29_19_01_47_youtochiiki_v2fgb",
+                "type": "fill",
+                minzoom: 1,
+                maxzoom: 23,
+                "filter": ["!=", ["to-number", ["get", "A29_007"]], 9999],
+                "paint": {
+                    "fill-color": [
+                        "step",
+                        ["to-number", ["get", "A29_007"]],
+                        "rgb(0,101,203)",
+                        100, "rgb(0,203,101)",
+                        150, "rgb(178,255,101)",
+                        200, "rgb(255,255,153)",
+                        300, "rgb(255,216,101)",
+                        400, "rgb(255,191,0)",
+                        500, "rgb(255,0,63)",
+                        700, "rgb(203,0,152)",
+                        1000, "rgb(76,0,152)"
+                    ],
+                    'fill-opacity': 0.8,
+                    'fill-outline-color': 'rgba(0, 0, 0, 0)'
+                }
+            });
+
+            // スライダーで用途地域の不透明度を制御
+            const sliderOpactiy = document.getElementById('slider-opacity');
+            const sliderOpactiyValue = document.getElementById('slider-opacity-value');
+
+            sliderOpactiy.addEventListener('input', (e) => {
+                map.setPaintProperty(
+                    'youtochiiki-name-fill',
+                    'fill-opacity',
+                    parseInt(e.target.value, 10) / 100
+                );
+                map.setPaintProperty(
+                    'youtochiiki-ratio-fill',
+                    'fill-opacity',
+                    parseInt(e.target.value, 10) / 100
+                );
+                sliderOpactiyValue.textContent = e.target.value + '%';
+            });
+
+            // 行政区域ベクトルタイル（ポリゴン）
+            map.addSource("pmtiles-gyouseikai", {
+                type: "vector",
+                url: "pmtiles://" + "https://xs489works.xsrv.jp/pmtiles-data/ksj/N03-23_230101_gyouseikai.pmtiles",
+                attribution: '<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v3_1.html">国土数値情報 行政区域データ（令和5年度）</a>'
+            });
+
+            // 行政区域ラインレイヤ
+            map.addLayer({
+                "id": "gyouseikai-line",
+                "type": "line",
+                "source": "pmtiles-gyouseikai",
+                "source-layer": "N0323_230101_gyouseikai",
+                minzoom: 12,
+                maxzoom: 18,
+                'paint': {
+                    'line-color': 'rgba(0, 0, 0, 1)',
+                    'line-width': 0.5
+                }
+            });
+
+            // 鉄道路線ソース
+            map.addSource('railroad', {
+                'type': 'geojson',
+                'data': 'https://xs489works.xsrv.jp/pmtiles-data/ksj/N02-22_RailroadSection.geojson',
+                attribution: '<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html">国土数値情報 鉄道データ（令和4年度）</a>'
+            });
+
+            // 鉄道駅ソース
+            map.addSource('station', {
+                'type': 'geojson',
+                'data': 'https://xs489works.xsrv.jp/pmtiles-data/ksj/N02-22_Station.geojson',
+                attribution: '<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-v3_1.html">国土数値情報 鉄道データ（令和4年度）</a>'
+            });
+
+            // JR以外の鉄道路線ラインレイヤ
+            map.addLayer({
+                'id': 'non-jr-railroad-lines',
+                'type': 'line',
+                'source': 'railroad',
+                'filter': ['!', ['in', ['get', 'N02_002'], ['literal', ['1', '2']]]],
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'butt'
+                },
+                'paint': {
+                    'line-color': 'rgb(127, 127, 127)',
+                    'line-width': 2,
+                    'line-opacity': 1.0
+                }
+            });
+
+            // JRの鉄道路線ラインレイヤ
+            // 黒色の実線のレイヤー
+            // ズームレベル12～23
+            map.addLayer({
+                'id': 'jr-railroad-lines-white-1',
+                'type': 'line',
+                'source': 'railroad',
+                minzoom: 12,
+                maxzoom: 23,
+                'filter': ['in', ['get', 'N02_002'], ['literal', ['1', '2']]],
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'butt'
+                },
+                'paint': {
+                    'line-color': 'rgb(127, 127, 127)',
+                    'line-width': 4,
+                    'line-opacity': 1.0
+                }
+            });
+
+            // 黒色の実線のレイヤー
+            // ズームレベル1～12
+            map.addLayer({
+                'id': 'jr-railroad-lines-white-2',
+                'type': 'line',
+                'source': 'railroad',
+                minzoom: 1,
+                maxzoom: 12,
+                'filter': ['in', ['get', 'N02_002'], ['literal', ['1', '2']]],
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                'paint': {
+                    'line-color': 'rgb(127, 127, 127)',
+                    'line-width': 4,
+                    'line-opacity': 1.0
+                }
+            });
+
+            // 白色の点線のレイヤー（白色の実線のレイヤーの上に重ねる）
+            // ズームレベル12～23
+            map.addLayer({
+                'id': 'jr-railroad-lines-black-dotted-3',
+                'type': 'line',
+                'source': 'railroad',
+                minzoom: 12,
+                maxzoom: 23,
+                'filter': ['in', ['get', 'N02_002'], ['literal', ['1', '2']]],
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'butt'
+                },
+                'paint': {
+                    'line-color': 'rgb(255, 255, 255)',
+                    'line-dasharray': [3, 3], // 点線を生成
+                    'line-width': 3,
+                    'line-opacity': 1.0
+                }
+            });
+
+            // 鉄道駅ラインレイヤ
+            map.addLayer({
+                'id': 'station-lines',
+                'type': 'line',
+                'source': 'station',
+                minzoom: 12,
+                maxzoom: 18,
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'butt'
+                },
+                'paint': {
+                    'line-color': 'rgb(0, 0, 0)',
+                    'line-width': 4,
+                    'line-opacity': 1.0
+                }
+            });
+
+            // PLATEAU建築物ソース
+            map.addSource("pmtiles-lod1-Building", {
+                type: "vector",
+                url: "pmtiles://" + "https://xs489works.xsrv.jp/pmtiles-data/plateau/PLATEAU_2020_LOD1_Z14.pmtiles",
+                attribution: '<a href="https://www.geospatial.jp/ckan/dataset/plateau">3D都市モデル「Project PLATEAU」 建築物（国土交通省）を加工して作成</a>'
+            });
+
+            // PLATEAU建築物レイヤ
+            map.addLayer({
+                'id': 'lod1-Building',
+                'source': 'pmtiles-lod1-Building',
+                'source-layer': 'PLATEAU_2020_LOD1fgb',
+                "minzoom": 14,
+                "maxzoom": 18,
+                'layout': {
+                    'visibility': 'visible',
+                },
+                'type': 'fill-extrusion',
+                'paint': {
+                    "fill-extrusion-color": "#aaa",
+                    "fill-extrusion-opacity": 0.5,
+                    "fill-extrusion-height": ["get", "bldg_measuredHeight"]
+                }
+            });
+
+            /*
+            // 国勢調査（町丁・字等別）ベクトルタイル（ポリゴン）
+            map.addSource("pmtiles-jinko", {
+                type: "vector",
+                url: "pmtiles://" + "https://xs489works.xsrv.jp/pmtiles-data/r2kokusei/r2ka01-47_JGD2011.pmtiles",
+                attribution: '<a href="https://www.e-stat.go.jp/">2020年国勢調査小地域（政府統計の総合窓口（e-Stat））を加工して作成</a>'
+            });
+
+            // 国勢調査（町丁・字等別）ベクトルタイル（ポイント）
+            map.addSource("pmtiles-jinko-point", {
+                type: "vector",
+                url: "pmtiles://" + "https://xs489works.xsrv.jp/pmtiles-data/r2kokusei/r2ka01-47_point_JGD2011.pmtiles",
+                // attribution: '<a href="https://www.e-stat.go.jp/">2020年国勢調査小地域（政府統計の総合窓口（e-Stat））を加工して作成</a>'
+            });
+
+            // 国勢調査（町丁・字等別）ラインレイヤ
+            map.addLayer({
+                "id": "jinko-line",
+                "type": "line",
+                "source": "pmtiles-jinko",
+                "source-layer": "r2ka0147_JGD2011",
+                "minzoom": 14,
+                "maxzoom": 18,
+                'paint': {
+                    'line-color': 'rgba(0, 101, 203, 1)',
+                    'line-width': 1.5
+                }
+            });
+            */
+
+            // 鉄道駅ラベルレイヤ
+            map.addLayer({
+                'id': 'station-labels-1',
+                'type': 'symbol',
+                'source': 'station',
+                minzoom: 12,
+                maxzoom: 15,
+                'layout': {
+                    'text-field': ['concat', ['to-string', ['get', 'N02_005']]],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 12,
+                    'text-anchor': 'center',
+                    'text-justify': 'center',
+                    'symbol-placement': 'line-center',
+                    'text-offset': [0, -0.75],
+                },
+                'paint': {
+                    'text-color': 'rgba(0, 101, 0, 1)',
+                    'text-halo-color': 'rgba(255, 255, 255, 1)',
+                    'text-halo-width': 1
+                },
+                'filter': ['in', ['get', 'N02_002'], ['literal', ['1', '2']]]
+            });
+
+            // 鉄道駅ラベルレイヤ
+            map.addLayer({
+                'id': 'station-labels-2',
+                'type': 'symbol',
+                'source': 'station',
+                minzoom: 12,
+                maxzoom: 18,
+                'layout': {
+                    'text-field': ['concat', ['to-string', ['get', 'N02_005']]],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 12,
+                    'text-anchor': 'center',
+                    'text-justify': 'center',
+                    'symbol-placement': 'line-center',
+                    'text-offset': [0, -0.75],
+                },
+                'paint': {
+                    'text-color': 'rgba(0, 101, 0, 1)',
+                    'text-halo-color': 'rgba(255, 255, 255, 1)',
+                    'text-halo-width': 1
+                }
+            });
+
+            // 鉄道路線ラベルレイヤ
+            map.addLayer({
+                'id': 'railroad-labels',
+                'type': 'symbol',
+                'source': 'railroad',
+                minzoom: 1,
+                maxzoom: 15,
+                'layout': {
+                    'text-field': ['concat', ['to-string', ['get', 'N02_004']], " ", ['to-string', ['get', 'N02_003']]],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 12,
+                    'text-anchor': 'center',
+                    'text-justify': 'center',
+                    'text-offset': [0, -0.75],
+                    'symbol-placement': 'line-center'
+                },
+                'paint': {
+                    'text-color': 'rgba(0, 101, 0, 1)',
+                    'text-halo-color': 'rgb(255, 255, 255)',
+                    'text-halo-width': 1
+                }
+            });
+
+            // 用途地域ラインレイヤ
+            map.addLayer({
+                "id": 'youtochiiki-lines',
+                "source": "pmtiles-youtochiiki",
+                "source-layer": "A29_19_01_47_youtochiiki_v2fgb",
+                "type": "line",
+                minzoom: 1,
+                maxzoom: 23,
+                "paint": {
+                    "line-color": '#ff0000',
+                    'line-width': 3,
+                    'line-opacity': [
+                        'case',
+                        ['boolean', ['feature-state', 'hover'], false],
+                        0.8,
+                        0
+                    ]
+                },
+            });
+
+            // ラインレイヤのホバー効果
+            const lineid = 'youtochiiki-lines';
+            const sourceName = 'pmtiles-youtochiiki';
+            const sourceLayerName = 'A29_19_01_47_youtochiiki_v2fgb';
+            map.on('mousemove', lineid, function (e) {
+                if (e.features.length > 0) {
+                    if (hoveredStateId) {
+                        map.setFeatureState(
+                            { source: sourceName, sourceLayer: sourceLayerName, id: hoveredStateId },
+                            { hover: false }
+                        );
+                    }
+                    hoveredStateId = e.features[0].id;
+                    map.setFeatureState(
+                        { source: sourceName, sourceLayer: sourceLayerName, id: hoveredStateId },
+                        { hover: true }
+                    );
+                }
+            });
+
+            map.on('mouseleave', lineid, function () {
+                if (hoveredStateId) {
+                    map.setFeatureState(
+                        { source: sourceName, sourceLayer: sourceLayerName, id: hoveredStateId },
+                        { hover: false }
+                    );
+                }
+                hoveredStateId = null;
+            });
+
+            // ポリゴンレイヤのホバー効果
+            const polygonId = 'youtochiiki-ratio-fill';
+
+            map.on('mousemove', polygonId, function (e) {
+                if (e.features.length > 0) {
+                    if (hoveredStateId) {
+                        // ラインのfeature-stateを更新してホバー効果を適用
+                        map.setFeatureState(
+                            { source: sourceName, sourceLayer: sourceLayerName, id: hoveredStateId },
+                            { hover: false }
+                        );
+                    }
+                    hoveredStateId = e.features[0].id;
+                    map.setFeatureState(
+                        { source: sourceName, sourceLayer: sourceLayerName, id: hoveredStateId },
+                        { hover: true }
+                    );
+                }
+            });
+
+            map.on('mouseleave', polygonId, function () {
+                if (hoveredStateId) {
+                    map.setFeatureState(
+                        { source: sourceName, sourceLayer: sourceLayerName, id: hoveredStateId },
+                        { hover: false }
+                    );
+                }
+                hoveredStateId = null;
+            });
+
+            /*
+            // 国勢調査（町丁・字等別）ラベルレイヤ
+            map.addLayer({
+                'id': 'jinko_label',
+                'type': 'symbol',
+                'source': 'pmtiles-jinko-point',
+                "source-layer": "r2ka0147_point_JGD2011",
+                "minzoom": 14,
+                "maxzoom": 18,
+                'layout': {
+                    'text-field': ['concat', ['get', 'S_NAME'], '\n', ['number-format', ['get', 'JINKO'], {}], '人'],
+                    'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+                    'text-size': 11
+                },
+                'paint': {
+                    'text-color': 'rgba(0, 101, 203, 1)',
+                    'text-halo-color': 'rgba(255,255,255,1)', // ラベルの外枠の色を白に設定
+                    'text-halo-width': 1 // ラベルの外枠の幅を2に設定
+                }
+            });
+            */
+
+            // 役場ソース
+            map.addSource('town-hall', {
+                'type': 'geojson',
+                'data': 'https://xs489works.xsrv.jp/pmtiles-data/ksj/P05-22_01_47_town_hall_add_cityname.geojson',
+                attribution: '<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P05-v3_0.html">国土数値情報 市町村役場（令和4年度）</a>'
+            });
+
+            // 役場ポイントレイヤ
+            // 外側の黒い円
+            map.addLayer({
+                'id': 'town-hall-points-outer-1',
+                'type': 'circle',
+                'source': 'town-hall',
+                'minzoom': 9,
+                'maxzoom': 12,
+                'paint': {
+                    'circle-color': 'rgba(0, 0, 0, 1)',
+                    'circle-radius': 5.5,
+                    'circle-blur': 0,
+                    'circle-opacity': 1
+                }
+            });
+
+            // 内側の白い円
+            map.addLayer({
+                'id': 'town-hall-points-inner-1',
+                'type': 'circle',
+                'source': 'town-hall',
+                'minzoom': 9,
+                'maxzoom': 12,
+                'paint': {
+                    'circle-color': 'rgba(255, 255, 255, 1)',
+                    'circle-radius': 4,
+                    'circle-blur': 0,
+                    'circle-opacity': 1
+                }
+            });
+
+            // 外側の黒い円
+            map.addLayer({
+                'id': 'town-hall-points-outer-2',
+                'type': 'circle',
+                'source': 'town-hall',
+                'minzoom': 9,
+                'maxzoom': 12,
+                'paint': {
+                    'circle-color': 'rgba(0, 0, 0, 1)',
+                    'circle-radius': 3,
+                    'circle-blur': 0,
+                    'circle-opacity': 1
+                }
+            });
+
+            // 内側の白い円
+            map.addLayer({
+                'id': 'town-hall-points-inner-2',
+                'type': 'circle',
+                'source': 'town-hall',
+                'minzoom': 9,
+                'maxzoom': 12,
+                'paint': {
+                    'circle-color': 'rgba(255, 255, 255, 1)',
+                    'circle-radius': 2.25,
+                    'circle-blur': 0,
+                    'circle-opacity': 1
+                }
+            });
+
+            // 役場ラベルレイヤ
+            map.addLayer({
+                'id': 'town-hall-labels-1',
+                'type': 'symbol',
+                'source': 'town-hall',
+                minzoom: 9,
+                maxzoom: 12,
+                'layout': {
+                    'text-field': ['get', 'city_name'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 12,
+                    'text-anchor': 'center',
+                    'text-justify': 'center',
+                    'text-offset': [0, -1.0],
+                },
+                'paint': {
+                    'text-color': 'rgba(0, 0, 0, 1)',
+                    'text-halo-color': 'rgba(255, 255, 255, 1)',
+                    'text-halo-width': 1
+                }
+            });
+
+            // 役場ラベルレイヤ
+            map.addLayer({
+                'id': 'town-hall-labels-2',
+                'type': 'symbol',
+                'source': 'town-hall',
+                minzoom: 12,
+                maxzoom: 18,
+                'layout': {
+                    'text-field': ['get', 'city_name'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 18,
+                    'text-anchor': 'center',
+                    'text-justify': 'center',
+                    'text-offset': [0, -1.0],
+                },
+                'paint': {
+                    'text-color': 'rgba(0, 0, 0, 1)',
+                    'text-halo-color': 'rgba(255, 255, 255, 1)',
+                    'text-halo-width': 2
+                }
+            });
+
+        });
+
+        // 用途地域ポップアップ表示
+        map.on('click', 'youtochiiki-ratio-fill', (e) => {
+            var lng = e.lngLat.lng;
+            var lat = e.lngLat.lat;
+            var cityname = e.features[0].properties['A29_003'];
+            var chiikicode = e.features[0].properties['A29_004'];
+            var chiikiname = e.features[0].properties['A29_005'];
+            var kenpeiritu = e.features[0].properties['A29_006'];
+            var yousekiritu = e.features[0].properties['A29_007'];
+
+            if (chiikicode === '1') {
+                // 第一種低層住居専用地域
+                var chiikinaiyou = '低層住宅のための地域です。小規模なお店や事務所をかねた住宅や、小中学校などが建てられます。';
+            } else if (chiikicode === '2') {
+                // 第二種低層住居専用地域
+                var chiikinaiyou = '主に低層住宅のための地域です。小中学校などのほか、150ｍ<sup>2</sup>までの一定のお店などが建てられます。';
+            } else if (chiikicode === '3') {
+                // 第一種中高層住居専用地域
+                var chiikinaiyou = '中高層住宅のための地域です。病院、大学、500ｍ<sup>2</sup>までの一定のお店などが建てられます。';
+            } else if (chiikicode === '4') {
+                // 第二種中高層住居専用地域
+                var chiikinaiyou = '主に中高層住宅のための地域です。病院、大学などのほか、1,500ｍ<sup>2</sup>までの一定のお店や事務所など必要な利便施設が建てられます。';
+            } else if (chiikicode === '5') {
+                // 第一種住居地域
+                var chiikinaiyou = '住居の環境を守るための地域です。3,000ｍ<sup>2</sup>までの店舗、事務所、ホテルなどは建てられます。';
+            } else if (chiikicode === '6') {
+                // 第二種住居地域
+                var chiikinaiyou = '主に住居の環境を守るための地域です。店舗、事務所、ホテル、カラオケボックスなどは建てられます。';
+            } else if (chiikicode === '7') {
+                // 準住居地域
+                var chiikinaiyou = '道路の沿道において、自動車関連施設などの立地と、これと調和した住居の環境を保護するための地域です。';
+            } else if (chiikicode === '8') {
+                // 近隣商業地域
+                var chiikinaiyou = 'まわりの住民が日用品の買物などをするための地域です。住宅や店舗のほかに小規模の工場も建てられます。';
+            } else if (chiikicode === '9') {
+                // 商業地域
+                var chiikinaiyou = '銀行、映画館、飲食店、百貨店などが集まる地域です。住宅や小規模の工場も建てられます。';
+            } else if (chiikicode === '10') {
+                // 準工業地域
+                var chiikinaiyou = '主に軽工業の工場やサービス施設等が立地する地域です。危険性、環境悪化が大きい工場のほかは、ほとんど建てられます。';
+            } else if (chiikicode === '11') {
+                // 工業地域
+                var chiikinaiyou = 'どんな工場でも建てられる地域です。住宅やお店は建てられますが、学校、病院、ホテルなどは建てられません。';
+            } else if (chiikicode === '12') {
+                // 工業専用地域
+                var chiikinaiyou = '工場のための地域です。どんな工場でも建てられますが、住宅、お店、学校、病院、ホテルなどは建てられません。';
+            } else if (chiikicode === '21') {
+                // 田園住居地域
+                var chiikinaiyou = '農業の利便の増進を図りつつ、これと調和した低層住宅に係る良好な住居の環境を保護するために定める地域です。';
+            }
+
+            new maplibregl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(
+                    '<div style="border-bottom:1px solid #000; font-size: 1.2em; color: #FF00FF;"><strong>' + chiikiname + '</strong></div>' +
+                    // '<div style="border-bottom:1px solid #000;"><strong><span style="color: #0000FF;">市区町村名: </span></strong>' + cityname + '</div>' +
+                    '<div style="border-bottom:1px solid #000;"><span style="color: #000000;"></span>' + chiikinaiyou + '</div>' +
+                    '<div style="border-bottom:1px solid #000;"><span style="color: #000000;">建ぺい率: </span>' + kenpeiritu + "%" + '</div>' +
+                    '<div style="border-bottom:1px solid #000;"><span style="color: #000000;">容積率: </span>' + yousekiritu + "%" + '</div>' +
+                    '<div><a href="https://www.google.com/maps?q=' + lat + ',' + lng + '&hl=ja" target="_blank">🌎Google Maps</a></div>' +
+                    '<div><a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + lat + ',' + lng + '&hl=ja" target="_blank">📷Street View</a></div>'
+                )
+                .addTo(map);
+        });
+    </script>
+</body>
+
+</html>
